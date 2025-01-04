@@ -9,7 +9,7 @@ from tqdm import tqdm
 from constants import BASE_DIR, MAIN_DOC_URL, PEP_DOC_URL
 from configs import configure_argument_parser, configure_logging
 from outputs import control_output
-from utils import get_response, find_tag
+from utils import get_response, find_tag, check_status
 
 
 def whats_new(session):
@@ -18,9 +18,10 @@ def whats_new(session):
     if response is None:
         return
     soup = BeautifulSoup(response.text, 'lxml')
-    main_div = find_tag(soup, 'section', attrs={'id':'what-s-new-in-python'})
+    main_div = find_tag(soup, 'section', attrs={'id': 'what-s-new-in-python'})
     div_with_ul = find_tag(main_div, 'div', attrs={'class': 'toctree-wrapper'})
-    sections_by_python = div_with_ul.find_all('li', attrs={'class': 'toctree-l1'})
+    sections_by_python = div_with_ul.find_all('li',
+                                              attrs={'class': 'toctree-l1'})
 
     results = [('Ссылка на статью', 'Заголовок', 'Редактор, автор')]
     for section in tqdm(sections_by_python):
@@ -70,18 +71,25 @@ def pep(session):
     if response is None:
         return
     soup = BeautifulSoup(response.text, 'lxml')
-    all_pep = soup.find('section', attrs={'id': 'index-by-category'})
-    # pep_tbody = all_pep.find_all('tbody') # Двойной поиск, как сделать? чтобы два условия по тегам было
+    # all_pep = soup.find('section', attrs={'id': 'index-by-category'})
+    all_pep = find_tag(soup, 'section', attrs={'id': 'index-by-category'})
     pep_rows = all_pep.find_all('tr')
-    for pep_row in pep_rows:
+    results = {'Status': 'Total'}
+    for pep_row in tqdm(pep_rows):
         columns = pep_row.find_all('td')
         if len(columns) == 0:
             continue
         status, url_pep_page = columns[:2]
-        status = status.text
-        url_pep_page = url_pep_page.find('a')['href']
+        status = status.text[1:]
+        # url_pep_page = url_pep_page.find('a')['href']
+        url_pep_page = find_tag(url_pep_page, 'a')['href']
         pep_link = urljoin(PEP_DOC_URL, url_pep_page)
-        # Реализовать функцию проверки статуса, какой на странице и какой в таблице
+        status_pep = check_status(session, status, pep_link)
+        if results.get(status_pep) is None:
+            results[status_pep] = 1
+        else:
+            results[status_pep] += 1
+    return list(results.items())
 
 
 def download(session):
@@ -92,14 +100,16 @@ def download(session):
     soup = BeautifulSoup(response.text, 'lxml')
     main_div = find_tag(soup, 'div', attrs={'class': 'document'})
     table_tag = find_tag(main_div, 'table', attrs={'class': 'docutils'})
-    pdf_a4_tag = find_tag(table_tag, 'a', {'href': re.compile(r'.+pdf-a4\.zip$')})
+    pdf_a4_tag = find_tag(table_tag, 'a',
+                          {'href': re.compile(r'.+pdf-a4\.zip$')})
     pdf_a4_tag = pdf_a4_tag['href']
     archive_url = urljoin(downloads_url, pdf_a4_tag)
     filename = archive_url.split('/')[-1]
     download_dir = BASE_DIR / 'downloads'
     download_dir.mkdir(exist_ok=True)
     archive_path = download_dir / filename
-    response = session.get(archive_url)
+    # response = session.get(archive_url)
+    response = get_response(session, archive_url)
     with open(archive_path, 'wb') as file:
         file.write(response.content)
     logging.info(f'Архив был загружен и сохранён: {archive_path}')
@@ -116,7 +126,6 @@ MODE_TO_FUNCTION = {
 def main():
     configure_logging()
     logging.info('Парсер запущен!')
-
     arg_parser = configure_argument_parser(MODE_TO_FUNCTION.keys())
     args = arg_parser.parse_args()
     logging.info(f'Аргументы командной строки: {args}')
