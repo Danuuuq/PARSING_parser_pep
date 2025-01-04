@@ -15,13 +15,12 @@ from utils import get_response, find_tag, check_status
 def whats_new(session):
     whats_new_url = urljoin(MAIN_DOC_URL, 'whatsnew/')
     response = get_response(session, whats_new_url)
-    if response is None:
-        return
     soup = BeautifulSoup(response.text, 'lxml')
     main_div = find_tag(soup, 'section', attrs={'id': 'what-s-new-in-python'})
     div_with_ul = find_tag(main_div, 'div', attrs={'class': 'toctree-wrapper'})
-    sections_by_python = div_with_ul.find_all('li',
-                                              attrs={'class': 'toctree-l1'})
+    sections_by_python = find_tag(div_with_ul, 'li',
+                                  attrs={'class': 'toctree-l1'},
+                                  many_tags=True)
 
     results = [('Ссылка на статью', 'Заголовок', 'Редактор, автор')]
     for section in tqdm(sections_by_python):
@@ -29,8 +28,6 @@ def whats_new(session):
         href = version_a_tag['href']
         version_link = urljoin(whats_new_url, href)
         response = get_response(session, version_link)
-        if response is None:
-            continue
         soup = BeautifulSoup(response.text, 'lxml')
         h1 = find_tag(soup, 'h1')
         dl = find_tag(soup, 'dl')
@@ -41,14 +38,12 @@ def whats_new(session):
 
 def latest_versions(session):
     response = get_response(session, MAIN_DOC_URL)
-    if response is None:
-        return
     soup = BeautifulSoup(response.text, 'lxml')
     sidebar = find_tag(soup, 'div', attrs={'class': 'sphinxsidebarwrapper'})
-    ul_tags = sidebar.find_all('ul')
+    ul_tags = find_tag(sidebar, 'ul', many_tags=True)
     for ul_tag in ul_tags:
         if 'All versions' in ul_tag.text:
-            a_tags = ul_tag.find_all('a')
+            a_tags = find_tag(ul_tag, 'a', many_tags=True)
             break
     else:
         raise Exception('Ничего не нашлось')
@@ -68,12 +63,10 @@ def latest_versions(session):
 
 def pep(session):
     response = get_response(session, PEP_DOC_URL)
-    if response is None:
-        return
     soup = BeautifulSoup(response.text, 'lxml')
-    # all_pep = soup.find('section', attrs={'id': 'index-by-category'})
     all_pep = find_tag(soup, 'section', attrs={'id': 'index-by-category'})
     pep_rows = all_pep.find_all('tr')
+    pep_rows = find_tag(all_pep, 'tr', many_tags=True)
     results = {'Status': 'Total'}
     for pep_row in tqdm(pep_rows):
         columns = pep_row.find_all('td')
@@ -81,7 +74,6 @@ def pep(session):
             continue
         status, url_pep_page = columns[:2]
         status = status.text[1:]
-        # url_pep_page = url_pep_page.find('a')['href']
         url_pep_page = find_tag(url_pep_page, 'a')['href']
         pep_link = urljoin(PEP_DOC_URL, url_pep_page)
         status_pep = check_status(session, status, pep_link)
@@ -95,20 +87,17 @@ def pep(session):
 def download(session):
     downloads_url = urljoin(MAIN_DOC_URL, 'download.html')
     response = get_response(session, downloads_url)
-    if response is None:
-        return
     soup = BeautifulSoup(response.text, 'lxml')
     main_div = find_tag(soup, 'div', attrs={'class': 'document'})
     table_tag = find_tag(main_div, 'table', attrs={'class': 'docutils'})
     pdf_a4_tag = find_tag(table_tag, 'a',
-                          {'href': re.compile(r'.+pdf-a4\.zip$')})
+                          attrs={'href': re.compile(r'.+pdf-a4\.zip$')})
     pdf_a4_tag = pdf_a4_tag['href']
     archive_url = urljoin(downloads_url, pdf_a4_tag)
     filename = archive_url.split('/')[-1]
     download_dir = BASE_DIR / 'downloads'
     download_dir.mkdir(exist_ok=True)
     archive_path = download_dir / filename
-    # response = session.get(archive_url)
     response = get_response(session, archive_url)
     with open(archive_path, 'wb') as file:
         file.write(response.content)

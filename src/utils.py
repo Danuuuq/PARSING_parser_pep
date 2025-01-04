@@ -10,32 +10,35 @@ from constants import EXPECTED_STATUS
 def get_response(session, url):
     try:
         response = session.get(url)
+    except RequestException:
+        error_msg = f'Возникла ошибка при загрузке страницы {url}'
+        logging.exception(error_msg, stack_info=True)
+        raise RequestException(error_msg)
+    else:
         response.encoding = 'utf-8'
         return response
-    except RequestException:
-        logging.exception(
-            f'Возникла ошибка при загрузке страницы {url}',
-            stack_info=True
-        )
 
 
-def find_tag(soup, tag, attrs=None):
-    searched_tag = soup.find(tag, attrs=(attrs or {}))
-    if searched_tag is None:
+def find_tag(soup, tag, attrs=None, many_tags=False, **kwargs):
+    if many_tags:
+        find_tag = soup.find_all(tag, attrs=(attrs or {}), **kwargs)
+    else:
+        find_tag = soup.find(tag, attrs=(attrs or {}), **kwargs)
+    if find_tag is None or not find_tag:
         error_msg = f'Не найден тег {tag} {attrs}'
         logging.error(error_msg, stack_info=True)
         raise ParserFindTagException(error_msg)
-    return searched_tag
+    return find_tag
 
 
 def check_status(session, status, url):
     status = EXPECTED_STATUS[status]
     response = get_response(session, url)
     soup = BeautifulSoup(response.text, 'lxml')
-    pep_info = soup.find(id='pep-content')
-    pep_list = pep_info.find('dl',
-                             attrs={'class': 'rfc2822 field-list simple'})
-    dt_status = pep_list.find(text='Status')
+    pep_info = find_tag(soup, tag=None, id='pep-content')
+    pep_list = find_tag(pep_info, 'dl',
+                        attrs={'class': 'rfc2822 field-list simple'})
+    dt_status = find_tag(pep_list, tag=None, text='Status')
     actual_status = dt_status.find_next('dd').text
     if actual_status not in status:
         error_msg = f'''Несовпадающий статус PEP:
