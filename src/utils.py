@@ -29,7 +29,7 @@ def find_tag(soup, tag, attrs=None, many_tags=False, **kwargs) -> str:
     :param soup: объект BeautifulSoup
     :param tag: тег искомого элемента
     :param attrs: атрибуты искомого элемента
-    :param many_tags: флаг, указывающий на то, что искомых элементов несколько"""
+    :param many_tags: флаг, указывающий на то, что искомых элементов много"""
     if many_tags:
         find_tag = soup.find_all(tag, attrs=(attrs or {}), **kwargs)
     else:
