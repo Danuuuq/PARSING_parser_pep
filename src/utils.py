@@ -7,7 +7,11 @@ from exceptions import ParserFindTagException
 from constants import EXPECTED_STATUS
 
 
-def get_response(session, url):
+def get_response(session, url) -> str:
+    """Получение ответа от сервера.
+
+    :param session: сессия
+    :param url: URL-адрес страницы"""
     try:
         response = session.get(url)
     except RequestException:
@@ -19,7 +23,13 @@ def get_response(session, url):
         return response
 
 
-def find_tag(soup, tag, attrs=None, many_tags=False, **kwargs):
+def find_tag(soup, tag, attrs=None, many_tags=False, **kwargs) -> str:
+    """Поиск тега на странице.
+
+    :param soup: объект BeautifulSoup
+    :param tag: тег искомого элемента
+    :param attrs: атрибуты искомого элемента
+    :param many_tags: флаг, указывающий на то, что искомых элементов несколько"""
     if many_tags:
         find_tag = soup.find_all(tag, attrs=(attrs or {}), **kwargs)
     else:
@@ -31,7 +41,13 @@ def find_tag(soup, tag, attrs=None, many_tags=False, **kwargs):
     return find_tag
 
 
-def check_status(session, status, url):
+def check_status(session, status, url) -> str:
+    """Проверка статуса PEP.
+
+    :param session: сессия
+    :param status: ожидаемый статус
+    :param url: URL-адрес страницы
+    :return: фактический статус"""
     status = EXPECTED_STATUS[status]
     response = get_response(session, url)
     soup = BeautifulSoup(response.text, 'lxml')

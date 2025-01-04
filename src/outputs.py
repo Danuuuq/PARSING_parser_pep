@@ -7,7 +7,13 @@ from prettytable import PrettyTable
 from constants import BASE_DIR, DATETIME_FORMAT
 
 
-def control_output(results, cli_args):
+def control_output(results, cli_args) -> None:
+    """Контроль вывода результатов.
+
+    Зависит от аргумента командной строки --output.
+    pretty - вывод в виде таблицы
+    file - сохранение в файл
+    по умолчанию - вывод в виде списка"""
     output = cli_args.output
     if output == 'pretty':
         pretty_output(results)
@@ -17,12 +23,14 @@ def control_output(results, cli_args):
         default_output(results)
 
 
-def default_output(results):
+def default_output(results) -> None:
+    """Вывод результатов в виде списка."""
     for row in results:
         print(*row)
 
 
-def pretty_output(results):
+def pretty_output(results) -> None:
+    """Вывод результатов в виде таблицы."""
     table = PrettyTable()
     table.field_names = results[0]
     table.align = 'l'
@@ -30,7 +38,8 @@ def pretty_output(results):
     print(table)
 
 
-def file_output(results, cli_args):
+def file_output(results, cli_args) -> None:
+    """Сохранение результатов в файл."""
     results_dir = BASE_DIR / 'results'
     results_dir.mkdir(exist_ok=True)
     parser_mode = cli_args.mode

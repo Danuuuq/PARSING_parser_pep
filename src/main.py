@@ -1,6 +1,7 @@
 import re
 from urllib.parse import urljoin
 import logging
+from collections import defaultdict
 
 import requests_cache
 from bs4 import BeautifulSoup
@@ -12,7 +13,8 @@ from outputs import control_output
 from utils import get_response, find_tag, check_status
 
 
-def whats_new(session):
+def whats_new(session) -> list:
+    """Парсинг раздела What's New в документации Python."""
     whats_new_url = urljoin(MAIN_DOC_URL, 'whatsnew/')
     response = get_response(session, whats_new_url)
     soup = BeautifulSoup(response.text, 'lxml')
@@ -36,7 +38,8 @@ def whats_new(session):
     return results
 
 
-def latest_versions(session):
+def latest_versions(session) -> list:
+    """Парсинг последних версий Python."""
     response = get_response(session, MAIN_DOC_URL)
     soup = BeautifulSoup(response.text, 'lxml')
     sidebar = find_tag(soup, 'div', attrs={'class': 'sphinxsidebarwrapper'})
@@ -61,13 +64,15 @@ def latest_versions(session):
     return results
 
 
-def pep(session):
+def pep(session) -> list:
+    """Парсинг PEP-документов."""
     response = get_response(session, PEP_DOC_URL)
     soup = BeautifulSoup(response.text, 'lxml')
     all_pep = find_tag(soup, 'section', attrs={'id': 'index-by-category'})
     pep_rows = all_pep.find_all('tr')
     pep_rows = find_tag(all_pep, 'tr', many_tags=True)
-    results = {'Status': 'Total'}
+    results = defaultdict(int)
+    results['Status'] = 'Total'
     for pep_row in tqdm(pep_rows):
         columns = pep_row.find_all('td')
         if len(columns) == 0:
@@ -77,14 +82,12 @@ def pep(session):
         url_pep_page = find_tag(url_pep_page, 'a')['href']
         pep_link = urljoin(PEP_DOC_URL, url_pep_page)
         status_pep = check_status(session, status, pep_link)
-        if results.get(status_pep) is None:
-            results[status_pep] = 1
-        else:
-            results[status_pep] += 1
+        results[status_pep] += 1
     return list(results.items())
 
 
-def download(session):
+def download(session) -> None:
+    """Загрузка архива с документацией."""
     downloads_url = urljoin(MAIN_DOC_URL, 'download.html')
     response = get_response(session, downloads_url)
     soup = BeautifulSoup(response.text, 'lxml')
