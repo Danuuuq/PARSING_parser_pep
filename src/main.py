@@ -11,6 +11,7 @@ from constants import BASE_DIR, MAIN_DOC_URL, PEP_DOC_URL
 from configs import configure_argument_parser, configure_logging
 from outputs import control_output
 from utils import get_response, find_tag, check_status
+from exceptions import ParserFindTagException
 
 
 def whats_new(session) -> list:
@@ -49,7 +50,7 @@ def latest_versions(session) -> list:
             a_tags = find_tag(ul_tag, 'a', many_tags=True)
             break
     else:
-        raise Exception('Ничего не нашлось')
+        raise ParserFindTagException('Ничего не нашлось')
 
     results = [('Ссылка на документацию', 'Версия', 'Статус')]
     pattern = r'Python (?P<version>\d\.\d+) \((?P<status>.*)\)'
@@ -83,6 +84,7 @@ def pep(session) -> list:
         pep_link = urljoin(PEP_DOC_URL, url_pep_page)
         status_pep = check_status(session, status, pep_link)
         results[status_pep] += 1
+    results['Total'] = sum([i for i in results.values() if i != 'Total'])
     return list(results.items())
 
 
